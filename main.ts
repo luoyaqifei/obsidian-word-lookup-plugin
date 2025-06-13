@@ -1,4 +1,5 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, request } from 'obsidian';
+import WordLookupService from 'src/word-lookup-service';
 
 // Remember to rename these classes and interfaces!
 
@@ -12,77 +13,16 @@ const DEFAULT_SETTINGS: WordLookupPluginSettings = {
 
 export default class WordLookupPlugin extends Plugin {
 	settings: WordLookupPluginSettings;
-
-	async query(queryText: string): Promise<string> {
-		if (!queryText) {
-			new Notice('No word selected!');
-			return '';
-		}
-		return new Promise((resolve, reject) => {
-			new Notice(`Looking up: ${queryText}`);
-			request({
-				url: `http://127.0.0.1:5000/api/vocab`,
-				body: JSON.stringify({ input_text: queryText }),
-				method: 'POST',
-				contentType: 'application/json',
-			}).then((response) => {
-				new Notice(`Received response for the selected word: ${queryText}`);
-				resolve(response);
-			})
-				.catch((error) => {
-					new Notice(`Error: ${error}`);
-					reject(error);
-				});
-		});
-
-	}
-
-	async queryWithContext(editor: Editor, view: MarkdownView) {
-		const selectedText = editor.getSelection();
-		let queryText = selectedText;
-		if (selectedText.trim() == '') {
-			return new Notice('No word selected!');
-		}
-
-		this.query(queryText);
-		return queryText;
-	}
-
-	async markAndQuery(editor: Editor, view: MarkdownView) {
-		const selectedText = editor.getSelection();
-		let queryText = selectedText;
-		if (selectedText.trim() == '') {
-			return new Notice('No word selected!');
-		}
-		const selectionStart = editor.getCursor('from').line;
-		const selectionEnd = editor.getCursor('to').line;
-		let lines = '';
-		if (selectionStart !== selectionEnd) {
-			lines = editor.getLine(selectionStart) + editor.getLine(selectionEnd);
-		}
-		else {
-			lines = editor.getLine(selectionStart);
-		}
-		if (!(selectedText.contains("[[") && selectedText.contains("]]"))) {
-			let bracketedText = `[[${selectedText.trim()}]]`;
-			if (selectedText[0] == ' ' || selectedText[selectedText.length - 1] == ' ') {
-				bracketedText = ` ${bracketedText} `;
-			}
-			editor.replaceSelection(bracketedText);
-			lines = lines.replace(selectedText, bracketedText);
-		}
-		queryText = lines;
-		this.query(queryText);
-		return queryText;
-	}
-
+	lookupService: WordLookupService;
 	async onload() {
 		await this.loadSettings();
+		this.lookupService = new WordLookupService();
 
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Word Lookup Plugin', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			new Notice('Word look up journey starts!');
+			
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -94,36 +34,21 @@ export default class WordLookupPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu, editor: Editor, view: MarkdownView) => {
 				menu
-				.addItem((item) =>
-					item
-						.setTitle("Mark and look up word within context")
-						.setIcon("checkmark")
-						.onClick(() => {
-							// Execute your existing command for full functionality
-							this.markAndQuery(editor, view).then((result) => {
-								if (result) {
-									new Notice(`Successfully marked and looked up!`);
-								}
-							}).catch((error) => {
-								new Notice(`Error during mark and lookup: ${error}`);
-							});
-						})
-				)
-				// .addItem((item) =>
-				// 	item
-				// 		.setTitle("Look up word with context") // Corrected typo and to match command name
-				// 		.setIcon("pencil") // Use any icon you like
-				// 		.onClick(() => {
-				// 			// Execute your existing command for full functionality
-				// 			this.queryWithContext(editor, view).then((result) => {
-				// 				if (result) {
-				// 					new Notice(`Successfully looked up!`);
-				// 				}
-				// 			}).catch((error) => {
-				// 				new Notice(`Error during lookup: ${error}`);
-				// 			});
-				// 		})
-				// );
+					.addItem((item) =>
+						item
+							.setTitle("Mark and look up word within context")
+							.setIcon("checkmark")
+							.onClick(() => {
+								// Execute your existing command for full functionality
+								this.lookupService.markAndQuery(editor, view).then((result) => {
+									if (result) {
+										new Notice(`Successfully marked and looked up!`);
+									}
+								}).catch((error) => {
+									new Notice(`Error during mark and lookup: ${error}`);
+								});
+							})
+					)
 			})
 		);
 
@@ -131,14 +56,14 @@ export default class WordLookupPlugin extends Plugin {
 			id: 'look-up-word-with-context',
 			name: 'Look up word with context',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'z' }],
-			editorCallback: this.queryWithContext.bind(this)
+			editorCallback: this.lookupService.queryWithContext.bind(this)
 		});
 
 		this.addCommand({
 			id: 'mark-and-look-up-word-within-context',
 			name: 'Mark and look up word within context',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'a' }],
-			editorCallback: this.queryWithContext.bind(this)
+			editorCallback: this.lookupService.markAndQuery.bind(this)
 		});
 
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
