@@ -26,7 +26,7 @@ export default class WordLookupPlugin extends Plugin {
 				method: 'POST',
 				contentType: 'application/json',
 			}).then((response) => {
-				new Notice(`Response: ${response}`);
+				new Notice(`Received response for the selected word: ${queryText}`);
 				resolve(response);
 			})
 				.catch((error) => {
@@ -38,32 +38,44 @@ export default class WordLookupPlugin extends Plugin {
 	}
 
 	async queryWithContext(editor: Editor, view: MarkdownView) {
-		const selectedText = editor.getSelection()?.trim();
+		const selectedText = editor.getSelection();
 		let queryText = selectedText;
-		if (selectedText == '') {
+		if (selectedText.trim() == '') {
 			return new Notice('No word selected!');
 		}
 
-		if (selectedText.length < 30) {
-			const selectionStart = editor.getCursor('from').line;
-			const selectionEnd = editor.getCursor('to').line;
-			let lines = '';
-			if (selectionStart !== selectionEnd) {
-				lines = editor.getLine(selectionStart) + editor.getLine(selectionEnd);
-			}
-			else {
-				lines = editor.getLine(selectionStart);
-			}
-			if (!(lines.contains("[[") && lines.contains("]]"))) {
-				if (!(selectedText.contains("[[") && selectedText.contains("]]"))) {
-					editor.replaceSelection(`[[${selectedText}]]`);
-				}
-				queryText = lines;
-			}
-		}
 		this.query(queryText);
 		return queryText;
 	}
+
+	async markAndQuery(editor: Editor, view: MarkdownView) {
+		const selectedText = editor.getSelection();
+		let queryText = selectedText;
+		if (selectedText.trim() == '') {
+			return new Notice('No word selected!');
+		}
+		const selectionStart = editor.getCursor('from').line;
+		const selectionEnd = editor.getCursor('to').line;
+		let lines = '';
+		if (selectionStart !== selectionEnd) {
+			lines = editor.getLine(selectionStart) + editor.getLine(selectionEnd);
+		}
+		else {
+			lines = editor.getLine(selectionStart);
+		}
+		if (!(selectedText.contains("[[") && selectedText.contains("]]"))) {
+			let bracketedText = `[[${selectedText.trim()}]]`;
+			if (selectedText[0] == ' ' || selectedText[selectedText.length - 1] == ' ') {
+				bracketedText = ` ${bracketedText} `;
+			}
+			editor.replaceSelection(bracketedText);
+			lines = lines.replace(selectedText, bracketedText);
+		}
+		queryText = lines;
+		this.query(queryText);
+		return queryText;
+	}
+
 	async onload() {
 		await this.loadSettings();
 
@@ -81,27 +93,51 @@ export default class WordLookupPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", (menu, editor: Editor, view: MarkdownView) => {
-				menu.addItem((item) =>
+				menu
+				.addItem((item) =>
 					item
-						.setTitle("Look up word with context") // Corrected typo and to match command name
-						.setIcon("pencil") // Use any icon you like
+						.setTitle("Mark and look up word within context")
+						.setIcon("checkmark")
 						.onClick(() => {
 							// Execute your existing command for full functionality
-							this.queryWithContext(editor, view).then((result) => {
+							this.markAndQuery(editor, view).then((result) => {
 								if (result) {
-									new Notice(`Lookup result: ${result}`);
+									new Notice(`Successfully marked and looked up!`);
 								}
 							}).catch((error) => {
-								new Notice(`Error during lookup: ${error}`);
+								new Notice(`Error during mark and lookup: ${error}`);
 							});
 						})
-				);
+				)
+				// .addItem((item) =>
+				// 	item
+				// 		.setTitle("Look up word with context") // Corrected typo and to match command name
+				// 		.setIcon("pencil") // Use any icon you like
+				// 		.onClick(() => {
+				// 			// Execute your existing command for full functionality
+				// 			this.queryWithContext(editor, view).then((result) => {
+				// 				if (result) {
+				// 					new Notice(`Successfully looked up!`);
+				// 				}
+				// 			}).catch((error) => {
+				// 				new Notice(`Error during lookup: ${error}`);
+				// 			});
+				// 		})
+				// );
 			})
 		);
+
 		this.addCommand({
 			id: 'look-up-word-with-context',
 			name: 'Look up word with context',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'z' }],
+			editorCallback: this.queryWithContext.bind(this)
+		});
+
+		this.addCommand({
+			id: 'mark-and-look-up-word-within-context',
+			name: 'Mark and look up word within context',
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'a' }],
 			editorCallback: this.queryWithContext.bind(this)
 		});
 
