@@ -1,4 +1,5 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, request } from 'obsidian';
+import StoryService from 'src/story-service';
 import WordLookupService from 'src/word-lookup-service';
 
 // Remember to rename these classes and interfaces!
@@ -14,15 +15,34 @@ const DEFAULT_SETTINGS: WordLookupPluginSettings = {
 export default class WordLookupPlugin extends Plugin {
 	settings: WordLookupPluginSettings;
 	lookupService: WordLookupService;
+	storyService: StoryService;
+
 	async onload() {
 		await this.loadSettings();
 		this.lookupService = new WordLookupService();
-
+		this.storyService = new StoryService();
+		
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Word Lookup Plugin', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			new Notice('Word look up journey starts!');
-			
+			this.storyService.generateStory(this.app.vault).then((story) => {
+				if (story) {
+					new Notice(`Generated story: ${story}`);
+					const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (activeView) {
+						const editor = activeView.editor;
+						editor.setValue(story);
+					} else {
+						new Notice('No active Markdown view found to insert the story.');
+					}
+				} else {
+					new Notice('Failed to generate story.');
+				}
+			}).catch((error) => {
+				new Notice(`Error generating story: ${error}`);
+			}
+			);
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
