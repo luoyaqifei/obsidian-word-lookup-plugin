@@ -7,14 +7,15 @@ export default class WordLookupService {
             return '';
         }
         return new Promise((resolve, reject) => {
-            new Notice(`Looking up: ${queryText}`);
+            new Notice(`Looking up the selected word(s)`);
+            const SERVER_URL = process.env.SERVER_URL;
             request({
-                url: `http://127.0.0.1:5000/api/vocab`,
+                url: `${SERVER_URL}/api/vocab`,
                 body: JSON.stringify({ input_text: queryText }),
                 method: 'POST',
                 contentType: 'application/json',
             }).then((response) => {
-                new Notice(`Received response for the selected word: ${queryText}`);
+                new Notice(`Received response for the selected word(s)`);
                 resolve(response);
             }).catch((error) => {
                 new Notice(`Error: ${error}`);
@@ -58,7 +59,7 @@ export default class WordLookupService {
             lines = lines.replace(selectedText, bracketedText);
         }
         queryText = lines;
-        this.query(queryText);
+        await this.query(queryText);
         return queryText;
     }
 

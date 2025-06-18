@@ -37,14 +37,14 @@ export default class StoryService {
             return '';
         }
         return new Promise((resolve, reject) => {
-            new Notice(`Looking up: ${words}`);
+            new Notice(`Starting story generation`);
             request({
                 url: `http://127.0.0.1:5000/api/story`,
                 body: JSON.stringify({ words: words }),
                 method: 'POST',
                 contentType: 'application/json',
             }).then((response) => {
-                new Notice(`Received response ${response} for the selected word: ${words}`);
+                new Notice(`Received response for the selected words: ${words}`);
                 resolve(response);
             }).catch((error) => {
                 new Notice(`Error: ${error}`);

@@ -1,8 +1,6 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, request } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, request } from 'obsidian';
 import StoryService from 'src/story-service';
 import WordLookupService from 'src/word-lookup-service';
-
-// Remember to rename these classes and interfaces!
 
 interface WordLookupPluginSettings {
 	mySetting: string;
@@ -19,30 +17,63 @@ export default class WordLookupPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		new Notice('server url is:' + process.env.SERVER_URL as string);
 		this.lookupService = new WordLookupService();
 		this.storyService = new StoryService();
-		
+
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Word Lookup Plugin', (evt: MouseEvent) => {
+		const ribbonIconEl = this.addRibbonIcon('dice', 'Word Lookup Plugin', async (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
 			new Notice('Word look up journey starts!');
-			this.storyService.generateStory(this.app.vault).then((story) => {
-				if (story) {
-					new Notice(`Generated story: ${story}`);
-					const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-					if (activeView) {
-						const editor = activeView.editor;
-						editor.setValue(story);
-					} else {
-						new Notice('No active Markdown view found to insert the story.');
-					}
-				} else {
-					new Notice('Failed to generate story.');
+			try {
+				const story = await this.storyService.generateStory(this.app.vault);
+				if (!story) {
+					new Notice('No story generated.');
+					return;
 				}
-			}).catch((error) => {
+				const fileName = `Story-${new Date().toISOString().replace(/[:.]/g, '-')}.md`;
+				const filePath = `English/stories/${fileName}`;
+				const exists = await this.app.vault.adapter.exists(filePath);
+				new Notice(`file exists: ${exists ? 'yes' : 'no'}`);
+				let file: TFile;
+
+				if (!exists) {
+					file = await this.app.vault.create(filePath, `# Story \n\n #generated_story \n\n${story}`);
+					new Notice(`Created new file: ${filePath}`);
+				}
+
+				// Open the file after it's definitely written
+				await this.app.workspace.openLinkText(filePath, '', true);
+
+			} catch (error) {
 				new Notice(`Error generating story: ${error}`);
 			}
-			);
+
+			// const fileName = `Story-${new Date().toISOString().split('T')[0]}.md`;
+			// const filePath = `English/stories/${fileName}`;
+			// const existingFile = this.app.vault.getAbstractFileByPath(filePath);
+			// let file: TFile;
+			// if (story) {
+			// 	if (!existingFile) {
+			// 		file = await this.app.vault.create(filePath, `# Story \n\n${story}`);
+			// 		new Notice(`Created new file: ${filePath}`);
+			// 		const leaf = this.app.workspace.getLeaf(true);
+			// 		await leaf.openFile(file);
+			// 	} else if (existingFile instanceof TFile) {
+			// 		file = existingFile;
+			// 		await this.app.vault.append(existingFile as TFile, `## Story 2\n\n${story}`);
+			// 		new Notice(`Appended to existing file: ${filePath}`);
+			// 		const leaf = this.app.workspace.getLeaf(true);
+			// 		await leaf.openFile(existingFile as TFile);
+			// 	}
+			// this.app.workspace.openLinkText(filePath, '', true);
+			// const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			// if (activeView) {
+			// 	const editor = activeView.editor;
+			// 	editor.setValue(story);
+			// } else {
+			// 	new Notice('No active Markdown view found to insert the story.');
+			// }
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
