@@ -38,8 +38,9 @@ export default class StoryService {
         }
         return new Promise((resolve, reject) => {
             new Notice(`Starting story generation`);
+            const SERVER_URL = process.env.SERVER_URL;
             request({
-                url: `http://127.0.0.1:5000/api/story`,
+                url: `${SERVER_URL}/api/story`,
                 body: JSON.stringify({ words: words }),
                 method: 'POST',
                 contentType: 'application/json',

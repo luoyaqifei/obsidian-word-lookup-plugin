@@ -48,32 +48,6 @@ export default class WordLookupPlugin extends Plugin {
 			} catch (error) {
 				new Notice(`Error generating story: ${error}`);
 			}
-
-			// const fileName = `Story-${new Date().toISOString().split('T')[0]}.md`;
-			// const filePath = `English/stories/${fileName}`;
-			// const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-			// let file: TFile;
-			// if (story) {
-			// 	if (!existingFile) {
-			// 		file = await this.app.vault.create(filePath, `# Story \n\n${story}`);
-			// 		new Notice(`Created new file: ${filePath}`);
-			// 		const leaf = this.app.workspace.getLeaf(true);
-			// 		await leaf.openFile(file);
-			// 	} else if (existingFile instanceof TFile) {
-			// 		file = existingFile;
-			// 		await this.app.vault.append(existingFile as TFile, `## Story 2\n\n${story}`);
-			// 		new Notice(`Appended to existing file: ${filePath}`);
-			// 		const leaf = this.app.workspace.getLeaf(true);
-			// 		await leaf.openFile(existingFile as TFile);
-			// 	}
-			// this.app.workspace.openLinkText(filePath, '', true);
-			// const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-			// if (activeView) {
-			// 	const editor = activeView.editor;
-			// 	editor.setValue(story);
-			// } else {
-			// 	new Notice('No active Markdown view found to insert the story.');
-			// }
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -107,14 +81,14 @@ export default class WordLookupPlugin extends Plugin {
 			id: 'look-up-word-with-context',
 			name: 'Look up word with context',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'z' }],
-			editorCallback: this.lookupService.queryWithContext.bind(this)
+			editorCallback: (editor: Editor, view: MarkdownView) => {this.lookupService.queryWithContext(editor, view)}
 		});
 
 		this.addCommand({
 			id: 'mark-and-look-up-word-within-context',
 			name: 'Mark and look up word within context',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'a' }],
-			editorCallback: this.lookupService.markAndQuery.bind(this)
+			editorCallback: (editor: Editor, view: MarkdownView) => {this.lookupService.markAndQuery(editor, view)}
 		});
 
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
